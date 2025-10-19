@@ -1,3 +1,5 @@
 # Porte Coulissante by Captain_Chaos
 
-This is a fork of Porte Coulissante by Captain_Chaos that is updated to work for paper-spigot 1.16.3.
+This is modified version of forked version of Porte Coulissante originaly created by Captain_Chaos and forked from Dolphindalt.
+This version is updated to work for paper-spigot 1.21.10
+

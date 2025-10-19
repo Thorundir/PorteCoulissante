@@ -1,0 +1,69 @@
+package org.reliqcraft;
+
+import org.bukkit.block.Block;
+
+public class TraceLogger {
+
+    // Reference to the plugin
+    private static PortcullisPlugin plugin;
+
+    // Enum for trace verbosity levels
+    public enum TraceLevel {
+        OFF,
+        BASIC,
+        VERBOSE,
+        DEBUG
+    }
+
+    // Current trace level (default to OFF)
+    private static TraceLevel level = TraceLevel.OFF;
+
+    public static void setLevel(TraceLevel newLevel) {
+        level = newLevel;
+    }
+
+    // Initialize the logger with plugin reference and config-based trace level
+    public static void init(PortcullisPlugin p) {
+        plugin = p;
+        String configLevel = p.getConfig().getString("trace-logging-level", "basic").toUpperCase();
+        try {
+            level = TraceLevel.valueOf(configLevel);
+        } catch (IllegalArgumentException e) {
+            level = TraceLevel.BASIC;
+        }
+    }
+
+    // Log a trace step with phase label and required level
+    public static void step(String phase, String message, TraceLevel requiredLevel) {
+        if (shouldLog(requiredLevel)) {
+            plugin.getLogger().info("[PorteCoulissante][" + phase + "] " + message);
+        }
+    }
+
+    // Log a labeled value with phase and required level
+    public static void value(String phase, String label, Object value, TraceLevel requiredLevel) {
+        if (shouldLog(requiredLevel)) {
+            plugin.getLogger().info("[PorteCoulissante][" + phase + "] " + label + " = " + value);
+        }
+    }
+
+    // Log block information with phase and required level
+    public static void block(String phase, String context, Block block, TraceLevel requiredLevel) {
+        if (!shouldLog(requiredLevel))
+            return;
+
+        if (block == null) {
+            plugin.getLogger().warning("[PorteCoulissante][" + phase + "] " + context + ": Block is null");
+        } else {
+            plugin.getLogger().info("[PorteCoulissante][" + phase + "] " + context + ": (" +
+                    block.getX() + "," + block.getY() + "," + block.getZ() + ") = " +
+                    block.getType() + " / " + block.getBlockData().getAsString());
+        }
+    }
+
+    // Helper to check if a message should be logged
+    private static boolean shouldLog(TraceLevel requiredLevel) {
+        return plugin != null && level.ordinal() >= requiredLevel.ordinal();
+    }
+
+}

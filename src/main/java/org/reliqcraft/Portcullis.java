@@ -28,9 +28,18 @@ import lombok.Setter;
  *
  * @author pepijn
  */
+@Getter
+@Setter
 @EqualsAndHashCode
 public class Portcullis {
-    public Portcullis(String worldName, int x, int z, int y, int width, int height, BlockFace direction, Material type) {
+    private final String worldName;
+    private final int x, z, width, height;
+    private final Material type;
+    private int y;
+    private final BlockFace direction;
+
+    public Portcullis(String worldName, int x, int z, int y, int width, int height, BlockFace direction,
+            Material type) {
         this.worldName = worldName;
         this.x = x;
         this.z = z;
@@ -41,15 +50,4 @@ public class Portcullis {
         this.type = type;
     }
 
-    @Getter
-    private final String worldName;
-    @Getter
-    private final int x, z, width, height;
-    @Getter
-    private final Material type;
-    @Getter
-    @Setter
-    private int y;
-    @Getter
-    private final BlockFace direction;
 }

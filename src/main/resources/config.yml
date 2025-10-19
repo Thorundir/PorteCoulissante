@@ -1,12 +1,34 @@
+# PorteCoulissante plugin configuration
+
+# Enables entity movement detection (e.g., players, mobs)
 entityMoving: true
-hoistingDelay: 40
-droppingDelay: 10
-portcullisMaterials: [ACACIA_FENCE, IRON_BARS, NETHER_BRICK_FENCE, BIRCH_FENCE, CRIMSON_FENCE, DARK_OAK_FENCE, JUNGLE_FENCE, OAK_FENCE, SPRUCE_FENCE, WARPED_FENCE]
+
+# Allows portcullis gates to float without full frame support
 allowFloating: true
+
+# Delay in ticks before hoisting begins (default: 40)
+hoistingDelay: 40
+
+# Delay in ticks before dropping begins (default: 10)
+droppingDelay: 10
+
+# Trace logging level: OFF, BASIC, VERBOSE, DEBUG
+trace-logging-level: OFF
+
+# Materials used for portcullis gates
+portcullisMaterials: []
+
+# Materials allowed as redstone power blocks (empty = allow all conductive)
 powerBlocks: []
+
+# Additional materials allowed for wall frames (empty = use defaults)
 additionalWallMaterials: []
+
+# Sound URLs for portcullis movement
 startSoundURL: http://mc.pepsoft.org/plugins/portecoulissante/sounds/portcullis_start.wav
 upSoundURL: http://mc.pepsoft.org/plugins/portecoulissante/sounds/portcullis_up.wav
 downSoundURL: http://mc.pepsoft.org/plugins/portecoulissante/sounds/portcullis_down.wav
+
+# Sound effect settings
 soundEffectDistance: 24
 soundEffectVolume: 50
