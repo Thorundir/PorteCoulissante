@@ -15,10 +15,13 @@ import org.bukkit.block.BlockFace;
  */
 public class PortcullisDetector {
     private final PortcullisPlugin plugin;
+    private final Set<Material> wallMaterials;
     private static final Logger logger = PortcullisPlugin.logger;
 
     public PortcullisDetector(PortcullisPlugin plugin, Set<Material> wallMaterials) {
         this.plugin = plugin;
+        this.wallMaterials = wallMaterials;
+
     }
 
     /**
@@ -31,7 +34,7 @@ public class PortcullisDetector {
         Portcullis portCullis = findPortcullisInDirection(block, direction);
         if (portCullis != null) {
             // logger.info("[PorteCoulissante] Raw portcullis: " + portCullis);
-            // portCullis = normalisePortcullis(portCullis);
+            portCullis = normalisePortcullis(portCullis);
             // logger.info("[PorteCoulissante] Normalized portcullis: " + normalized);
             logPortcullisDetails(portCullis, block.getWorld());
         }
@@ -63,28 +66,27 @@ public class PortcullisDetector {
         }
     }
 
-    /**
-     * Normalizes coordinates for WEST/NORTH-facing gates to ensure consistent
-     * movement.
-     *
-     * private Portcullis normalisePortcullis(final Portcullis portcullis) {
-     * switch (portcullis.getDirection()) {
-     * case WEST:
-     * return new Portcullis(portcullis.getWorldName(), portcullis.getX() -
-     * portcullis.getWidth() + 1,
-     * portcullis.getZ(), portcullis.getY(), portcullis.getWidth(),
-     * portcullis.getHeight(),
-     * BlockFace.EAST, portcullis.getType());
-     * case NORTH:
-     * return new Portcullis(portcullis.getWorldName(), portcullis.getX(),
-     * portcullis.getZ() - portcullis.getWidth() + 1, portcullis.getY(),
-     * portcullis.getWidth(),
-     * portcullis.getHeight(), BlockFace.SOUTH, portcullis.getType());
-     * default:
-     * return portcullis;
-     * }
-     * }
-     */
+    // Normalizes coordinates for WEST/NORTH-facing gates to ensure consistent
+    // movement.
+
+    private Portcullis normalisePortcullis(final Portcullis portcullis) {
+        switch (portcullis.getDirection()) {
+            case WEST:
+                return new Portcullis(portcullis.getWorldName(), portcullis.getX() -
+                        portcullis.getWidth() + 1,
+                        portcullis.getZ(), portcullis.getY(), portcullis.getWidth(),
+                        portcullis.getHeight(),
+                        BlockFace.EAST, portcullis.getType());
+            case NORTH:
+                return new Portcullis(portcullis.getWorldName(), portcullis.getX(),
+                        portcullis.getZ() - portcullis.getWidth() + 1, portcullis.getY(),
+                        portcullis.getWidth(),
+                        portcullis.getHeight(), BlockFace.SOUTH, portcullis.getType());
+            default:
+                return portcullis;
+        }
+    }
+
     /**
      * Scans for a valid portcullis structure in the given direction.
      * Validates width, height, and frame integrity.
@@ -199,11 +201,11 @@ public class PortcullisDetector {
     /**
      * Determines if a block type is allowed as a power source.
      */
-    private boolean isPotentialPowerBlock(final Material wallType) {
-        TraceLogger.value("Detection", "Checking power block type", wallType, TraceLogger.TraceLevel.DEBUG);
+    private boolean isPotentialPowerBlock(final Material material) {
+        TraceLogger.value("Detection", "Checking power block type", material, TraceLogger.TraceLevel.DEBUG);
         return plugin.isAllPowerBlocksAllowed()
-                ? MaterialGroups.CONDUCTIVE.contains(wallType)
-                : plugin.getPowerBlocks().contains(wallType);
+                ? MaterialGroups.POWER_RELATED.contains(material)
+                : plugin.getPowerRelatedMaterials().contains(material);
 
     }
 
@@ -211,6 +213,7 @@ public class PortcullisDetector {
      * Determines if a block is a valid portcullis material.
      */
     private boolean isPotentialPortcullisBlock(final Block block) {
+        TraceLogger.value("Detection", "Checking portcullis block", block.getType(), TraceLogger.TraceLevel.DEBUG);
         return plugin.getPortcullisMaterials().contains(block.getBlockData().getMaterial());
     }
 

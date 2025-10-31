@@ -48,7 +48,7 @@ public class PortcullisBlockListener implements Listener {
     private static final BlockFace[] CARDINAL_DIRECTIONS = { NORTH, EAST, SOUTH, WEST };
 
     // Updated for Minecraft 1.20.2
-    private static final Set<Material> CONDUCTIVE = MaterialGroups.CONDUCTIVE;
+    // private static final Set<Material> CONDUCTIVE = MaterialGroups.CONDUCTIVE;
 
     private static final Logger logger = PortcullisPlugin.logger;
 
@@ -58,8 +58,14 @@ public class PortcullisBlockListener implements Listener {
     public PortcullisBlockListener(final PortcullisPlugin plugin) {
         this.plugin = plugin;
         this.detector = new PortcullisDetector(plugin, wallMaterials);
-        wallMaterials.addAll(plugin.getAdditionalWallMaterials());
+        wallMaterials.addAll(plugin.getAdditionalFrameMaterials());
     }
+
+    /**
+     * Stores wall materials
+     */
+
+    
 
     /**
      * Handles redstone power changes. Filters noise, delegates detection,
@@ -82,11 +88,11 @@ public class PortcullisBlockListener implements Listener {
         TraceLogger.value("Physics", "Powered block location", block.getLocation(), TraceLogger.TraceLevel.BASIC);
         TraceLogger.value("Physics", "Block material", block.getBlockData().getMaterial(),
                 TraceLogger.TraceLevel.DEBUG);
-        TraceLogger.value("Physics", "CONDUCTIVE set contains", CONDUCTIVE, TraceLogger.TraceLevel.DEBUG);
-        TraceLogger.value("Physics", "Is conductive", CONDUCTIVE.contains(block.getBlockData().getMaterial()),
+        TraceLogger.value("Physics", "CONDUCTIVE set contains", isConductiveFrameBlock(block),
                 TraceLogger.TraceLevel.DEBUG);
+        TraceLogger.value("Physics", "Is conductive", isConductiveFrameBlock(block), TraceLogger.TraceLevel.DEBUG);
         // Ignore non-conductive blocks
-        if (!plugin.getPowerBlocks().contains(block.getBlockData().getMaterial())) {
+        if (!isConductiveFrameBlock(block)) {
             logger.fine("[PorteCoulissante] Block not conductive; ignoring");
             return;
         }
@@ -95,6 +101,7 @@ public class PortcullisBlockListener implements Listener {
         for (final BlockFace direction : CARDINAL_DIRECTIONS) {
             TraceLogger.step("Detection", "Scanning direction " + direction + " from block " + block.getLocation(),
                     TraceLogger.TraceLevel.BASIC);
+
             Portcullis portCullis = detector.detect(block, direction);
             if (portCullis != null) {
                 TraceLogger.step("Detection", "Portcullis detected: " + portCullis, TraceLogger.TraceLevel.BASIC);
@@ -113,6 +120,25 @@ public class PortcullisBlockListener implements Listener {
          * // Trigger portcullis detection and movement here
          * }
          */
+    }
+
+    /**
+     * Checks if powered block is frame conductive.
+     * Checks if config allow to have frame block be conductive.
+     */
+    private boolean isConductiveFrameBlock(final Block block) {
+        Material type = block.getType();
+
+        if (plugin.getFrameConductiveMaterials().contains(type)) {
+            return true;
+        }
+
+        if (plugin.isAllowFrameBlocksAsConductive()) {
+            return plugin.getFrameMaterials().contains(type)
+                    || plugin.getAdditionalFrameMaterials().contains(type);
+        }
+
+        return false;
     }
 
     public void onBlockRedstoneChange(final BlockRedstoneEvent event) {
@@ -144,9 +170,9 @@ public class PortcullisBlockListener implements Listener {
                 return;
 
             // Ignore non-conductive blocks
-            if (!CONDUCTIVE.contains(block.getBlockData().getMaterial())) {
-                logger.fine("[PorteCoulissante] Block @ " + location.getBlockX() + ", " + location.getBlockY() + ", "
-                        + location.getBlockZ() + ", type: " + block.getType() + " not conductive; ignoring");
+            if (!isConductiveFrameBlock(block)) {
+                TraceLogger.step("Physics", "Block not conductive; ignoring: " + block.getType(),
+                        TraceLogger.TraceLevel.BASIC);
                 return;
             }
 
