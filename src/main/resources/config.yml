@@ -15,14 +15,23 @@ droppingDelay: 10
 # Trace logging level: OFF, BASIC, VERBOSE, DEBUG
 trace-logging-level: OFF
 
+# Optional loging enabled
+debugLogging: extra
+
 # Materials used for portcullis gates
 portcullisMaterials: []
 
-# Materials allowed as redstone power blocks (empty = allow all conductive)
+# Materials allowed as redstone power blocks (empty = allow all predefined power blocks)
 powerBlocks: []
 
+# Allow all frame materials to count as conductive
+allowFrameBlocksAsConductive: true
+
+# Allow to set basic frame materials (empty = allow all predefined frame blocks)
+basicFrameMaterials: []
+
 # Additional materials allowed for wall frames (empty = use defaults)
-additionalWallMaterials: []
+additionalFrameMaterials: []
 
 # Sound URLs for portcullis movement
 startSoundURL: http://mc.pepsoft.org/plugins/portecoulissante/sounds/portcullis_start.wav

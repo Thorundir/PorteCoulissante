@@ -25,7 +25,15 @@ public class PortcullisPlugin extends JavaPlugin {
     @Getter
     private int hoistingDelay, droppingDelay, soundEffectDistance, soundEffectVolume;
     @Getter
-    private Set<Material> portcullisMaterials, powerBlocks, additionalWallMaterials;
+    private Set<Material> portcullisMaterials;
+    @Getter
+    private Set<Material> frameMaterials, additionalFrameMaterials;
+    @Getter
+    private Set<Material> frameConductiveMaterials;
+    @Getter
+    private Set<Material> powerRelatedMaterials;
+    @Getter
+    private boolean allowFrameBlocksAsConductive;
     @Getter
     private boolean allowFloating, allPowerBlocksAllowed;
     @Getter
@@ -59,8 +67,8 @@ public class PortcullisPlugin extends JavaPlugin {
 
         logger.info("[PorteCoulissante] Plugin version " + getDescription().getVersion() + " by Captain_Chaos enabled");
         TraceLogger.testLogger();
-        TraceLogger.value("Startup", "Loaded powerBlocks", getPowerBlocks(), TraceLogger.TraceLevel.DEBUG);
-        TraceLogger.value("Startup", "All power blocks allowed", isAllPowerBlocksAllowed(), TraceLogger.TraceLevel.DEBUG);
+        TraceLogger.value("Startup", "All power blocks allowed", isAllPowerBlocksAllowed(),
+                TraceLogger.TraceLevel.DEBUG);
     }
 
     /**
@@ -107,17 +115,31 @@ public class PortcullisPlugin extends JavaPlugin {
 
         // Material sets with fallback to MaterialGroups
         portcullisMaterials = loadMaterialList("portcullisMaterials", MaterialGroups.PORTCULLIS);
-        powerBlocks = loadMaterialList("powerBlocks", MaterialGroups.CONDUCTIVE);
-        additionalWallMaterials = loadMaterialList("additionalWallMaterials", MaterialGroups.SUPPORTING);
+        List<String> basicFrameNames = config.getStringList("basicFrameMaterials");
+
+        if (!basicFrameNames.isEmpty()) {
+            frameMaterials = parseMaterialList(basicFrameNames);
+            frameMaterials.addAll(additionalFrameMaterials);
+        } else {
+            frameMaterials = new HashSet<>(MaterialGroups.FRAME);
+            frameMaterials.addAll(loadMaterialList("frameMaterials", Collections.emptySet()));
+            frameMaterials.addAll(additionalFrameMaterials);
+        }
+        additionalFrameMaterials = loadMaterialList("additionalFrameMaterials", Collections.emptySet());
+        frameConductiveMaterials = loadMaterialList("frameConductiveMaterials", MaterialGroups.FRAME_CONDUCTIVE);
+        allowFrameBlocksAsConductive = config.getBoolean("allowFrameBlocksAsConductive", false);
 
         allowFloating = config.getBoolean("allowFloating");
 
-        List<String> powerBlockNames = getConfig().getStringList("powerBlocks");
-        allPowerBlocksAllowed = powerBlockNames.isEmpty();
-        powerBlocks = powerBlockNames.isEmpty()
-            ? MaterialGroups.CONDUCTIVE
-            : parseMaterialList(powerBlockNames);
+        List<String> powerBlockNames = config.getStringList("powerBlocks");
 
+        if (powerBlockNames.isEmpty()) {
+            powerRelatedMaterials = MaterialGroups.POWER_RELATED;
+            allPowerBlocksAllowed = true;
+        } else {
+            powerRelatedMaterials = parseMaterialList(powerBlockNames);
+            allPowerBlocksAllowed = false;
+        }
 
         startSoundURL = config.getString("startSoundURL");
         upSoundURL = config.getString("upSoundURL");
@@ -126,9 +148,8 @@ public class PortcullisPlugin extends JavaPlugin {
         soundEffectVolume = config.getInt("soundEffectVolume");
 
         logNonStandardConfig(config);
-        TraceLogger.value("Startup", "Loaded portcullis materials", getPortcullisMaterials(), TraceLogger.TraceLevel.DEBUG);
-        TraceLogger.value("Startup", "Loaded power blocks", getPowerBlocks(), TraceLogger.TraceLevel.DEBUG);
-
+        TraceLogger.value("Startup", "Loaded portcullis materials", getPortcullisMaterials(),
+                TraceLogger.TraceLevel.DEBUG);
     }
 
     private Set<Material> parseMaterialList(List<String> names) {
@@ -142,7 +163,6 @@ public class PortcullisPlugin extends JavaPlugin {
         }
         return result;
     }
-
 
     /**
      * Loads a material list from config with fallback to defaults.
@@ -177,11 +197,16 @@ public class PortcullisPlugin extends JavaPlugin {
             warnings.add("portcullis materials " + portcullisMaterials);
         if (allowFloating != Defaults.ALLOW_FLOATING)
             warnings.add("floating not allowed");
+        if (allowFrameBlocksAsConductive)
+            warnings.add("frame blocks allowed as conductive");
         if (!allPowerBlocksAllowed)
-            warnings.add("power blocks allowed " + powerBlocks);
-        if (!additionalWallMaterials.isEmpty())
-            warnings.add("additional wall materials " + additionalWallMaterials);
-
+            warnings.add("custom power blocks " + powerRelatedMaterials);
+        if (!config.getStringList("basicFrameMaterials").isEmpty())
+            warnings.add("basic frame materials override");
+        if (!config.getStringList("basicFrameMaterials").isEmpty())
+            warnings.add("basic frame materials override + additional");
+        if (!additionalFrameMaterials.isEmpty())
+            warnings.add("additional frame materials " + additionalFrameMaterials);
         if (!warnings.isEmpty()) {
             String joined = String.join(", ", warnings);
             logger.info("[PorteCoulissante] Non-standard configuration items loaded from config file: " + joined);
