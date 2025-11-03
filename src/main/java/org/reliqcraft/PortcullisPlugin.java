@@ -18,7 +18,7 @@ import lombok.Getter;
  */
 public class PortcullisPlugin extends JavaPlugin {
 
-    static final Logger logger = Logger.getLogger("Minecraft.org.reliqcraft");
+    static final Logger logger = Logger.getLogger("PorteCoulissante.Native");
 
     @Getter
     private boolean entityMovingEnabled;
@@ -39,14 +39,7 @@ public class PortcullisPlugin extends JavaPlugin {
     @Getter
     private String startSoundURL, upSoundURL, downSoundURL;
 
-    /**
-     * Called when the plugin is disabled.
-     * Logs shutdown event.
-     */
-    @Override
-    public void onDisable() {
-        logger.fine("[PorteCoulissante] Plugin disabled");
-    }
+    private PortcullisBlockListener blockListener;
 
     /**
      * Called when the plugin is enabled.
@@ -56,19 +49,29 @@ public class PortcullisPlugin extends JavaPlugin {
     public void onEnable() {
         TraceLogger.init(this);
         logger.log(Level.FINEST,
-                "[PorteCoulissante] PortcullisPlugin.onEnable() (thread: " + Thread.currentThread() + ")",
+                "PortcullisPlugin.onEnable() (thread: " + Thread.currentThread() + ")",
                 new Throwable());
 
         ensureConfigExists();
         loadConfiguration();
 
         PluginManager pluginManager = getServer().getPluginManager();
-        pluginManager.registerEvents(new PortcullisBlockListener(this), this);
+        blockListener = new PortcullisBlockListener(this);
+        pluginManager.registerEvents(blockListener, this);
 
-        logger.info("[PorteCoulissante] Plugin version " + getDescription().getVersion() + " by Captain_Chaos enabled");
+        logger.info("Plugin version " + getDescription().getVersion() + " by Captain_Chaos enabled");
         TraceLogger.testLogger();
         TraceLogger.value("Startup", "All power blocks allowed", isAllPowerBlocksAllowed(),
                 TraceLogger.TraceLevel.DEBUG);
+    }
+
+    /**
+     * Called when the plugin is disabled.
+     * Logs shutdown event.
+     */
+    @Override
+    public void onDisable() {
+        logger.info("Plugin disabled");
     }
 
     /**
@@ -106,16 +109,20 @@ public class PortcullisPlugin extends JavaPlugin {
         String traceLevelConfig = config.getString("trace-logging-level", "OFF").toUpperCase();
         try {
             TraceLogger.setLevel(TraceLogger.TraceLevel.valueOf(traceLevelConfig));
-            logger.info("[PorteCoulissante] Trace logging level set to: " + traceLevelConfig);
+            TraceLogger.value("Startup", "Trace logging level set to", traceLevelConfig, TraceLogger.TraceLevel.BASIC);
         } catch (IllegalArgumentException e) {
             TraceLogger.setLevel(TraceLogger.TraceLevel.OFF);
-            logger.warning("[PorteCoulissante] Invalid trace logging level '" + traceLevelConfig
+            logger.warning("Invalid trace logging level '" + traceLevelConfig
                     + "' in config.yml. Defaulting to OFF.");
         }
 
         // Material sets with fallback to MaterialGroups
         portcullisMaterials = loadMaterialList("portcullisMaterials", MaterialGroups.PORTCULLIS);
         List<String> basicFrameNames = config.getStringList("basicFrameMaterials");
+
+        additionalFrameMaterials = loadMaterialList("additionalFrameMaterials", Collections.emptySet());
+        frameConductiveMaterials = loadMaterialList("frameConductiveMaterials", MaterialGroups.FRAME_CONDUCTIVE);
+        allowFrameBlocksAsConductive = config.getBoolean("allowFrameBlocksAsConductive", false);
 
         if (!basicFrameNames.isEmpty()) {
             frameMaterials = parseMaterialList(basicFrameNames);
@@ -125,9 +132,6 @@ public class PortcullisPlugin extends JavaPlugin {
             frameMaterials.addAll(loadMaterialList("frameMaterials", Collections.emptySet()));
             frameMaterials.addAll(additionalFrameMaterials);
         }
-        additionalFrameMaterials = loadMaterialList("additionalFrameMaterials", Collections.emptySet());
-        frameConductiveMaterials = loadMaterialList("frameConductiveMaterials", MaterialGroups.FRAME_CONDUCTIVE);
-        allowFrameBlocksAsConductive = config.getBoolean("allowFrameBlocksAsConductive", false);
 
         allowFloating = config.getBoolean("allowFloating");
 
@@ -177,7 +181,7 @@ public class PortcullisPlugin extends JavaPlugin {
             try {
                 result.add(Material.valueOf(name.toUpperCase()));
             } catch (IllegalArgumentException e) {
-                logger.warning("[PorteCoulissante] Unknown material in config: " + name);
+                logger.warning("Unknown material in config: " + name);
             }
         }
         return result;
@@ -209,7 +213,7 @@ public class PortcullisPlugin extends JavaPlugin {
             warnings.add("additional frame materials " + additionalFrameMaterials);
         if (!warnings.isEmpty()) {
             String joined = String.join(", ", warnings);
-            logger.info("[PorteCoulissante] Non-standard configuration items loaded from config file: " + joined);
+            logger.info("Non-standard configuration items loaded from config file: " + joined);
         }
 
         // Optional debug logging override
@@ -217,12 +221,16 @@ public class PortcullisPlugin extends JavaPlugin {
         if (debugLogging != null) {
             if (debugLogging.equalsIgnoreCase("extra")) {
                 logger.setLevel(Level.FINEST);
-                logger.info("[PorteCoulissante] Extra debug logging enabled (see log file)");
+                logger.info("Extra debug logging enabled (see log file)");
             } else if (!debugLogging.equalsIgnoreCase("false")) {
                 logger.setLevel(Level.FINE);
-                logger.info("[PorteCoulissante] Debug logging enabled (see log file)");
+                logger.info("Debug logging enabled (see log file)");
             }
         }
+    }
+
+    public PortcullisBlockListener getBlockListener() {
+        return blockListener;
     }
 
     /**

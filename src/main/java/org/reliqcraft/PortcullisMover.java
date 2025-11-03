@@ -154,6 +154,7 @@ public class PortcullisMover implements Runnable {
     @Override
     public void run() {
         TraceLogger.step("Run", "Movement tick triggered", TraceLogger.TraceLevel.BASIC);
+        plugin.getBlockListener().clearSeenPhysics();
 
         try {
             TraceLogger.value("Run", "Thread context", Thread.currentThread().toString(), TraceLogger.TraceLevel.DEBUG);
@@ -172,7 +173,7 @@ public class PortcullisMover implements Runnable {
         } catch (Throwable t) {
             TraceLogger.step("Run", "Exception thrown during movement tick", TraceLogger.TraceLevel.BASIC);
             TraceLogger.value("Run", "Exception details", t.toString(), TraceLogger.TraceLevel.DEBUG);
-            logger.log(Level.SEVERE, "[PorteCoulissante] Exception thrown while moving portcullis!", t);
+            logger.log(Level.SEVERE, "Exception thrown while moving portcullis!", t);
         }
 
         TraceLogger.value("Run", "Final status after tick", status, TraceLogger.TraceLevel.BASIC);

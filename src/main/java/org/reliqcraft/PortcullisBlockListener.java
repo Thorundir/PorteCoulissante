@@ -21,15 +21,15 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.logging.Level;
-import java.util.logging.Logger;
+//import java.util.logging.Logger; // no needed anymore. Tracelogger handles it completly except SEVERE
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
+//import org.bukkit.block.BlockFace; // no idea why this was warning.
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import static org.bukkit.block.BlockFace.*;
+//import static org.bukkit.block.BlockFace.*; // Used with cardinal direction scans - outdated
 
 import org.bukkit.event.block.BlockPhysicsEvent;
 import org.bukkit.event.block.BlockRedstoneEvent;
@@ -44,13 +44,16 @@ public class PortcullisBlockListener implements Listener {
     private final PortcullisPlugin plugin;
     private final Set<PortcullisMover> portcullisMovers = new HashSet<>();
     private final Set<Material> wallMaterials = new HashSet<>(Arrays.asList(Material.values()));
+    private final Set<Location> seenPhysicsBlocks = new HashSet<>();
 
-    private static final BlockFace[] CARDINAL_DIRECTIONS = { NORTH, EAST, SOUTH, WEST };
+    // private static final BlockFace[] CARDINAL_DIRECTIONS = { NORTH, EAST, SOUTH,
+    // WEST }; // outdated
 
     // Updated for Minecraft 1.20.2
     // private static final Set<Material> CONDUCTIVE = MaterialGroups.CONDUCTIVE;
 
-    private static final Logger logger = PortcullisPlugin.logger;
+    // private static final Logger logger = PortcullisPlugin.logger; // No need to
+    // define a separate logger — use plugin.getLogger() directly for severe errors
 
     /**
      * Constructor - Initializes detector and loads additional wall materials.
@@ -65,8 +68,6 @@ public class PortcullisBlockListener implements Listener {
      * Stores wall materials
      */
 
-    
-
     /**
      * Handles redstone power changes. Filters noise, delegates detection,
      * and triggers portcullis movement if applicable.
@@ -76,12 +77,27 @@ public class PortcullisBlockListener implements Listener {
     // temporari listener
     /*
      * public void onBlockPhysics(BlockPhysicsEvent event) {
-     * logger.info("[PorteCoulissante] Physics event at " +
+     * logger.info("Physics event at " +
      * event.getBlock().getLocation());
      * }
      */
     public void onBlockPhysics(BlockPhysicsEvent event) {
         Block block = event.getBlock();
+        Material type = block.getType();
+        Location loc = block.getLocation();
+        if (seenPhysicsBlocks.add(loc)) {
+            TraceLogger.block("Physics", "BlockPhysicsEvent triggered", block, TraceLogger.TraceLevel.BASIC);
+        }
+        if (type == Material.LEVER || type == Material.REDSTONE_WIRE || type == Material.REPEATER
+                || type == Material.REDSTONE_TORCH) {
+            TraceLogger.step("Physics", "Redstone-related physics event", TraceLogger.TraceLevel.VERBOSE);
+        } else if (type == Material.AIR) {
+            TraceLogger.step("Physics", "Likely air update or block removal", TraceLogger.TraceLevel.VERBOSE);
+        } else if (type.isSolid()) {
+            TraceLogger.step("Physics", "Solid block update", TraceLogger.TraceLevel.VERBOSE);
+        } else {
+            TraceLogger.step("Physics", "Other block update", TraceLogger.TraceLevel.VERBOSE);
+        }
         if (!block.isBlockPowered())
             return;
 
@@ -93,30 +109,48 @@ public class PortcullisBlockListener implements Listener {
         TraceLogger.value("Physics", "Is conductive", isConductiveFrameBlock(block), TraceLogger.TraceLevel.DEBUG);
         // Ignore non-conductive blocks
         if (!isConductiveFrameBlock(block)) {
-            logger.fine("[PorteCoulissante] Block not conductive; ignoring");
+            TraceLogger.step("Physics", "Block not conductive; ignoring", TraceLogger.TraceLevel.DEBUG);
             return;
         }
 
-        // Scan all cardinal directions for portcullis structures
-        for (final BlockFace direction : CARDINAL_DIRECTIONS) {
-            TraceLogger.step("Detection", "Scanning direction " + direction + " from block " + block.getLocation(),
-                    TraceLogger.TraceLevel.BASIC);
-
-            Portcullis portCullis = detector.detect(block, direction);
-            if (portCullis != null) {
-                TraceLogger.step("Detection", "Portcullis detected: " + portCullis, TraceLogger.TraceLevel.BASIC);
+        // Gate movement now respects power state: hoist if powered, drop if not.
+        // Implemented with love and clarity by Viktor & Number One.
+        Portcullis portCullis = detector.detect(block);
+        if (portCullis != null) {
+            TraceLogger.step("Detection", "Portcullis detected via physics event", TraceLogger.TraceLevel.BASIC);
+            boolean isPowered = detector.isFramePowered(block, portCullis.getDirection());
+            TraceLogger.value("Detection", "Gate fully powered", isPowered, TraceLogger.TraceLevel.BASIC);
+            if (isPowered) {
                 hoistPortcullis(portCullis);
             } else {
-                TraceLogger.step("Detection", "No portcullis found in direction " + direction,
-                        TraceLogger.TraceLevel.BASIC);
-
+                dropPortcullis(portCullis);
             }
         }
+        /**
+         * // Scan all cardinal directions for portcullis structures
+         * for (final BlockFace direction : CARDINAL_DIRECTIONS) {
+         * TraceLogger.step("Detection", "Scanning direction " + direction + " from
+         * block " + block.getLocation(),
+         * TraceLogger.TraceLevel.BASIC);
+         * 
+         * Portcullis portCullis = detector.detect(block, direction);
+         * if (portCullis != null) {
+         * TraceLogger.step("Detection", "Portcullis detected: " + portCullis,
+         * TraceLogger.TraceLevel.BASIC);
+         * hoistPortcullis(portCullis);
+         * } else {
+         * TraceLogger.step("Detection", "No portcullis found in direction " +
+         * direction,
+         * TraceLogger.TraceLevel.BASIC);
+         * 
+         * }
+         * }
+         */
 
         /*
          * delete this after test
          * if (block.isBlockPowered()) {
-         * logger.info("[PorteCoulissante] Powered block at " + block.getLocation());
+         * logger.info("Powered block at " + block.getLocation());
          * // Trigger portcullis detection and movement here
          * }
          */
@@ -142,28 +176,23 @@ public class PortcullisBlockListener implements Listener {
     }
 
     public void onBlockRedstoneChange(final BlockRedstoneEvent event) {
-        logger.info("[PorteCoulissante] Redstone event triggered at " + event.getBlock().getLocation());
+        TraceLogger.value("Redstone", "Event triggered at", event.getBlock().getLocation(),
+                TraceLogger.TraceLevel.BASIC);
         try {
-            if (logger.isLoggable(Level.FINEST)) {
-                logger.log(Level.FINEST, "[PorteCoulissante] PortcullisBlockListener.onBlockRedstoneChange() (thread: "
-                        + Thread.currentThread() + ")", new Throwable());
-            }
+            TraceLogger.value("Redstone", "Thread context", Thread.currentThread().toString(),
+                    TraceLogger.TraceLevel.DEBUG);
 
             final Block block = event.getBlock();
             final Location location = block.getLocation();
 
-            if (logger.isLoggable(Level.FINE)) {
-                logger.fine("[PorteCoulissante] Redstone event on block @ " + location.getBlockX() + ", "
-                        + location.getBlockY() + ", " + location.getBlockZ() + ", type: " + block.getType() + "; "
-                        + event.getOldCurrent() + " -> " + event.getNewCurrent());
-
-                if (logger.isLoggable(Level.FINEST)) {
-                    logger.finest("[PorteCoulissante] Type according to World.getBlockAt(): "
-                            + block.getWorld().getBlockAt(location).getType());
-                    logger.finest("[PorteCoulissante] Type according to BlockData.getMaterial(): "
-                            + block.getWorld().getBlockAt(location).getBlockData().getMaterial());
-                }
-            }
+            TraceLogger.value("Redstone", "Block location", location, TraceLogger.TraceLevel.DEBUG);
+            TraceLogger.value("Redstone", "Block type", block.getType(), TraceLogger.TraceLevel.DEBUG);
+            TraceLogger.value("Redstone", "Redstone transition", event.getOldCurrent() + " -> " + event.getNewCurrent(),
+                    TraceLogger.TraceLevel.DEBUG);
+            TraceLogger.value("Redstone", "World.getBlockAt()", block.getWorld().getBlockAt(location).getType(),
+                    TraceLogger.TraceLevel.DEBUG);
+            TraceLogger.value("Redstone", "BlockData.getMaterial()",
+                    block.getWorld().getBlockAt(location).getBlockData().getMaterial(), TraceLogger.TraceLevel.DEBUG);
 
             // Ignore events that are not power on/off transitions
             if (!((event.getOldCurrent() == 0) || (event.getNewCurrent() == 0)))
@@ -177,42 +206,51 @@ public class PortcullisBlockListener implements Listener {
             }
 
             final boolean powerOn = event.getOldCurrent() == 0;
-            logger.fine("[PorteCoulissante] Block powered " + (powerOn ? "on" : "off"));
+            TraceLogger.step("Redstone", "Block powered " + (powerOn ? "on" : "off"), TraceLogger.TraceLevel.BASIC);
 
-            // Scan all cardinal directions for portcullis structures
-            for (final BlockFace direction : CARDINAL_DIRECTIONS) {
-                Portcullis portCullis = detector.detect(block, direction);
-                if (portCullis != null) {
-                    // Optional trace logging
-                    // TraceLogger.log(TraceLevel.BASIC, "Triggering portcullis " + (powerOn ?
-                    // "hoist" : "drop") + " for " + portCullis);
-
-                    if (powerOn) {
-                        hoistPortcullis(portCullis);
-                    } else {
-                        dropPortcullis(portCullis);
-                    }
-                }
+            Portcullis portCullis = detector.detect(block);
+            if (portCullis != null) {
+                TraceLogger.step("Detection", "Portcullis detected via redstone event", TraceLogger.TraceLevel.BASIC);
+                hoistPortcullis(portCullis);
             }
+            /**
+             * // Scan all cardinal directions for portcullis structures
+             * for (final BlockFace direction : CARDINAL_DIRECTIONS) {
+             * Portcullis portCullis = detector.detect(block, direction);
+             * if (portCullis != null) {
+             * // Optional trace logging
+             * // TraceLogger.log(TraceLevel.BASIC, "Triggering portcullis " + (powerOn ?
+             * // "hoist" : "drop") + " for " + portCullis);
+             */
+            if (powerOn) {
+                hoistPortcullis(portCullis);
+            } else {
+                dropPortcullis(portCullis);
+            }
+
         } catch (final Throwable t) {
-            logger.log(Level.SEVERE, "[PorteCoulissante] Exception thrown while handling redstone event!", t);
+            plugin.getLogger().log(Level.SEVERE, "Exception thrown while handling redstone event!", t);
         }
+    }
+
+    public void clearSeenPhysics() {
+        seenPhysicsBlocks.clear();
     }
 
     /**
      * Hoists the portcullis using an existing or new mover.
      */
     private void hoistPortcullis(final Portcullis portcullis) {
-        logger.info("[PorteCoulissante] Hoisting portcullis: " + portcullis);
+        TraceLogger.value("Movement", "Hoisting portcullis", portcullis, TraceLogger.TraceLevel.BASIC);
         for (final PortcullisMover mover : portcullisMovers) {
             if (mover.getPortcullis().equals(portcullis)) {
-                logger.fine("[PorteCoulissante] Reusing existing portcullis mover");
+                TraceLogger.step("Hoisting", "Reusing existing mover for hoist", TraceLogger.TraceLevel.DEBUG);
                 mover.setPortcullis(portcullis);
                 mover.hoist();
                 return;
             }
         }
-        logger.fine("[PorteCoulissante] Creating new portcullis mover");
+        TraceLogger.step("Hoisting", "Creating new mover for hoist", TraceLogger.TraceLevel.DEBUG);
         final PortcullisMover mover = new PortcullisMover(plugin, portcullis, wallMaterials);
         portcullisMovers.add(mover);
         mover.hoist();
@@ -224,13 +262,13 @@ public class PortcullisBlockListener implements Listener {
     private void dropPortcullis(final Portcullis portcullis) {
         for (final PortcullisMover mover : portcullisMovers) {
             if (mover.getPortcullis().equals(portcullis)) {
-                logger.fine("[PorteCoulissante] Reusing existing portcullis mover");
+                TraceLogger.step("Dropping", "Reusing existing mover for drop", TraceLogger.TraceLevel.DEBUG);
                 mover.setPortcullis(portcullis);
                 mover.drop();
                 return;
             }
         }
-        logger.fine("[PorteCoulissante] Creating new portcullis mover");
+        TraceLogger.step("Dropping", "Creating new mover for drop", TraceLogger.TraceLevel.DEBUG);
         final PortcullisMover mover = new PortcullisMover(plugin, portcullis, wallMaterials);
         portcullisMovers.add(mover);
         mover.drop();

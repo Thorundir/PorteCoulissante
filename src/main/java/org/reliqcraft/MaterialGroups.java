@@ -3,10 +3,13 @@ package org.reliqcraft;
 import java.util.Set;
 import java.util.HashSet;
 import org.bukkit.Material;
+import org.bukkit.block.BlockFace;
 
 /**
  * MaterialGroups - Centralized definitions of default material sets used
  * throughout the plugin. Improves readability, consistency, and teachability.
+ * Static material sets used for movement and collision logic.
+ * No TraceLogger needed — this class contains no runtime behavior.
  */
 public class MaterialGroups {
 
@@ -96,6 +99,22 @@ public class MaterialGroups {
                         Material.REDSTONE_WIRE,
                         Material.REPEATER,
                         Material.COMPARATOR);
+
+        /**
+         * Cardinal directions used for horizontal scanning.
+         */
+        public static final Set<BlockFace> CARDINAL_DIRECTIONS = Set.of(
+                        BlockFace.NORTH,
+                        BlockFace.EAST,
+                        BlockFace.SOUTH,
+                        BlockFace.WEST);
+
+        /**
+         * Vertical directions used for height scanning.
+         */
+        public static final Set<BlockFace> VERTICAL_DIRECTIONS = Set.of(
+                        BlockFace.UP,
+                        BlockFace.DOWN);
 
         private MaterialGroups() {
                 // Utility class - no instantiation
